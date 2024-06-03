@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+    <style>
+        table {
+            border-collapse: collapse;
+            width: 100%;
+        }
+        th, td {
+            border: 1px solid #dddddd;
+            text-align: left;
+            padding: 8px;
+        }
+        th {
+            background-color: #f2f2f2;
+        }
+        img {
+            width: 50px;
+            height: 50px;
+        }
+        .controls {
+            margin-bottom: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div class="controls">
+        <label for="nationality-filter">Filter by Nationality:</label>
+        <select id="nationality-filter">
+            <option value="">All</option>
+        </select>
+        <label for="sort-by">Sort by:</label>
+        <select id="sort-by">
+            <option value="TotalRuns">Total Runs</option>
+            <option value="Sixes">Sixes</option>
+            <option value="Fours">Fours</option>
+            <option value="StrikeRate">Strike Rate</option>
+        </select>
+    </div>
+    <table id="player-table">
+        <thead>
+            <tr>
+                <th>POS</th>
+                <th>Player</th>
+                <th>4s</th>
+                <th>Mat</th>
+                <th>INNS</th>
+                <th>NO</th>
+                <th>Runs</th>
+                <th>HS</th>
+                <th>Avg</th>
+                <th>BF</th>
+                <th>SR</th>
+                <th>100</th>
+                <th>50</th>
+                <th>6s</th>
+            </tr>
+        </thead>
+        <tbody id="player-table-body"></tbody>
+    </table>
+    <div id="pagination-controls"></div>
+    <div id="c"></div>
+
+    <script>
+        let playersData = [];
+        let filteredData = [];
+        let currentPage = 1;
+        const rowsPerPage = 10;
+        let tbody = document.querySelector("#player-table-body");
+
+        const getdata = () => {
+            fetch("https://cors-anywhere.herokuapp.com/https://masai-course.s3.ap-south-1.amazonaws.com/editor/uploads/2024-05-31/data_736106.json")
+            .then(res => {
+                if (!res.ok) {
+                    throw new Error("Network response was not ok");
+                }
+                return res.json();
+            })
+            .then(data => {
+                playersData = data.players;
+                initializeFilters(data.players);
+                applyFiltersAndSort();
+            })
+            .catch(error => {
+                console.error('There was a problem fetching the data:', error);
+            });
+        }
+
+        const initializeFilters = (players) => {
+            let nationalitySet = new Set();
+
+            players.forEach(player => {
+                nationalitySet.add(player.Nationality);
+            });
+
+            let nationalityFilter = document.querySelector("#nationality-filter");
+            nationalitySet.forEach(nat => {
+                let option = document.createElement("option");
+                option.value = nat;
+                option.textContent = nat;
+                nationalityFilter.appendChild(option);
+            });
+        }
+
+        const applyFiltersAndSort = () => {
+            const nationalityFilter = document.querySelector("#nationality-filter").value;
+            const sortBy = document.querySelector("#sort-by").value;
+
+            filteredData = playersData.filter(player => {
+                return nationalityFilter === "" || player.Nationality === nationalityFilter;
+            });
+
+            filteredData.sort((a, b) => b[sortBy] - a[sortBy]);
+
+            currentPage = 1;
+            renderTable();
+        }
+
+        const renderTable = () => {
+            tbody.innerHTML = "";
+            const startIndex = (currentPage - 1) * rowsPerPage;
+            const endIndex = startIndex + rowsPerPage;
+
+            filteredData.slice(startIndex, endIndex).forEach((player, i) => {
+                let row = document.createElement("tr");
+
+                let posCell = document.createElement("td");
+                posCell.textContent = startIndex + i + 1;
+                row.appendChild(posCell);
+
+                let playerNameCell = document.createElement("td");
+                playerNameCell.textContent = player.StrikerName;
+                row.appendChild(playerNameCell);
+
+                let foursCell = document.createElement("td");
+                foursCell.textContent = player.Fours;
+                row.appendChild(foursCell);
+
+                let matchesCell = document.createElement("td");
+                matchesCell.textContent = player.Matches;
+                row.appendChild(matchesCell);
+
+                let inningsCell = document.createElement("td");
+                inningsCell.textContent = player.Innings;
+                row.appendChild(inningsCell);
+
+                let notOutsCell = document.createElement("td");
+                notOutsCell.textContent = player.NotOuts;
+                row.appendChild(notOutsCell);
+
+                let runsCell = document.createElement("td");
+                runsCell.textContent = player.TotalRuns;
+                row.appendChild(runsCell);
+
+                let highestScoreCell = document.createElement("td");
+                highestScoreCell.textContent = player.HighestScore || '-';
+                row.appendChild(highestScoreCell);
+
+                let avgCell = document.createElement("td");
+                let average = (player.TotalRuns / (player.Outs > 0 ? player.Outs : 1)).toFixed(2); // Avoid division by zero
+                avgCell.textContent = average;
+                row.appendChild(avgCell);
+
+                let ballsCell = document.createElement("td");
+                ballsCell.textContent = player.Balls;
+                row.appendChild(ballsCell);
+
+                let strikeRateCell = document.createElement("td");
+                strikeRateCell.textContent = player.StrikeRate;
+                row.appendChild(strikeRateCell);
+
+                let centuriesCell = document.createElement("td");
+                centuriesCell.textContent = player.Centuries;
+                row.appendChild(centuriesCell);
+
+                let fiftiesCell = document.createElement("td");
+                fiftiesCell.textContent = player.FiftyPlusRuns;
+                row.appendChild(fiftiesCell);
+
+                let sixesCell = document.createElement("td");
+                sixesCell.textContent = player.Sixes;
+                row.appendChild(sixesCell);
+
+                tbody.appendChild(row);
+            });
+
+            renderPaginationControls();
+        }
+
+        const renderPaginationControls = () => {
+            const paginationControls = document.querySelector("#pagination-controls");
+            paginationControls.innerHTML = "";
+
+            const totalPages = Math.ceil(filteredData.length / rowsPerPage);
+            for (let i = 1; i <= totalPages; i++) {
+                let button = document.createElement("button");
+                button.textContent = i;
+                if (i === currentPage) {
+                    button.disabled = true;
+                }
+                button.addEventListener("click", () => {
+                    currentPage = i;
+                    renderTable();
+                });
+                paginationControls.appendChild(button);
+            }
+        }
+
+        document.querySelector("#nationality-filter").addEventListener("change", applyFiltersAndSort);
+        document.querySelector("#sort-by").addEventListener("change", applyFiltersAndSort);
+
+        getdata();
+    </script>
+</body>
+</html>
